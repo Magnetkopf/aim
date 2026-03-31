@@ -2,12 +2,14 @@ package metadata
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type AppMetadata struct {
@@ -17,6 +19,75 @@ type AppMetadata struct {
 	Desktop          string // path to the extracted .desktop file
 	TmpDir           string // where squashfs-root is currently located
 	AlreadyInstalled bool   // true if this exact hash version is already installed
+}
+
+// AppVersion represents a single installed version in versions.json
+type AppVersion struct {
+	Hash        string    `json:"hash"`
+	InstallTime time.Time `json:"install_time"`
+}
+
+// AppVersionsFile represents the structure of versions.json
+type AppVersionsFile struct {
+	Versions []AppVersion `json:"versions"`
+}
+
+// GetVersionsFile returns the path to the versions.json for an app
+func GetVersionsFile(appName string) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(homeDir, ".local", "share", "aim", "apps", appName, "versions.json"), nil
+}
+
+// AddVersion records a newly installed version in versions.json
+func AddVersion(appName, hash string) error {
+	versionsPath, err := GetVersionsFile(appName)
+	if err != nil {
+		return err
+	}
+
+	var versionsFile AppVersionsFile
+
+	// Read existing file if it exists
+	if data, err := os.ReadFile(versionsPath); err == nil {
+		if err := json.Unmarshal(data, &versionsFile); err != nil {
+			// If we can't parse it, we'll just start fresh rather than failing the install
+			fmt.Printf("Warning: Could not parse existing versions.json: %v\n", err)
+		}
+	}
+
+	// Check if this hash is already in the list
+	found := false
+	for i, v := range versionsFile.Versions {
+		if v.Hash == hash {
+			// Update install time for existing
+			versionsFile.Versions[i].InstallTime = time.Now()
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		// Add new version
+		versionsFile.Versions = append(versionsFile.Versions, AppVersion{
+			Hash:        hash,
+			InstallTime: time.Now(),
+		})
+	}
+
+	// Write back
+	data, err := json.MarshalIndent(versionsFile, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to encode versions.json: %w", err)
+	}
+
+	if err := os.WriteFile(versionsPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write versions.json: %w", err)
+	}
+
+	return nil
 }
 
 // HashExists checks if the given hash version is already installed for the app

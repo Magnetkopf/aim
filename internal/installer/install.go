@@ -21,7 +21,7 @@ func ExecuteInstallation(meta *metadata.AppMetadata, action string) error {
 	versionDir := filepath.Join(appBaseDir, meta.Hash)
 	currentSymlink := filepath.Join(appBaseDir, "current")
 
-	// 1. Move TmpDir to VersionDir
+	// Move TmpDir to VersionDir
 	if err := os.MkdirAll(appBaseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create app base dir: %w", err)
 	}
@@ -38,13 +38,18 @@ func ExecuteInstallation(meta *metadata.AppMetadata, action string) error {
 		return fmt.Errorf("failed to move extracted files to installation directory: %w", err)
 	}
 
-	// 2. Update symlink
+	// Update symlink
 	os.Remove(currentSymlink)
 	if err := os.Symlink(meta.Hash, currentSymlink); err != nil {
 		return fmt.Errorf("failed to create current symlink: %w", err)
 	}
 
-	// 3. Process Desktop file
+	// Update versions.json
+	if err := metadata.AddVersion(meta.AppName, meta.Hash); err != nil {
+		fmt.Printf("Warning: failed to update versions.json: %v\n", err)
+	}
+
+	// Process Desktop file
 	desktopPath := filepath.Join(versionDir, "squashfs-root", filepath.Base(meta.Desktop))
 	desktopBytes, err := os.ReadFile(desktopPath)
 	if err != nil {
