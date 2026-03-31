@@ -14,8 +14,9 @@ import (
 )
 
 func main() {
-	var register bool
+	var register,unregister bool
 	flag.BoolVar(&register, "register", false, "Register aim as the default handler for .AppImage files")
+	flag.BoolVar(&unregister, "unregister", false, "Unregister aim")
 
 	flag.Parse()
 
@@ -27,12 +28,21 @@ func main() {
 		return
 	}
 
+	if unregister {
+		if err := intercept.Unregister(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error unregistering aim: %v\n", err)
+			os.Exit(1)
+		} 
+		return
+	}
+
 	// For now, in Phase 1, we just verify that we received a file path.
 	args := flag.Args()
 	if len(args) == 0 {
 		fmt.Println("aim")
 		fmt.Println("Usage: aim [appimage_file]")
 		fmt.Println("       aim --register")
+		fmt.Println("       aim --unregister")
 		os.Exit(1)
 	}
 
