@@ -125,6 +125,7 @@ func parseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, err
 
 	lines := strings.Split(string(contentBytes), "\n")
 	var iconName string
+	var fallbackName string
 	inDesktopEntry := false
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -135,13 +136,20 @@ func parseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, err
 		}
 		// Only parse Name and Icon when inside [Desktop Entry] section
 		if inDesktopEntry {
-			if strings.HasPrefix(line, "Name=") && meta.AppName == "" {
-				meta.AppName = strings.TrimPrefix(line, "Name=")
+			if strings.HasPrefix(line, "X-AppImage-Name=") && meta.AppName == "" {
+				meta.AppName = strings.TrimPrefix(line, "X-AppImage-Name=")
+			}
+			if strings.HasPrefix(line, "Name=") && fallbackName == "" {
+				fallbackName = strings.TrimPrefix(line, "Name=")
 			}
 			if strings.HasPrefix(line, "Icon=") {
 				iconName = strings.TrimPrefix(line, "Icon=")
 			}
 		}
+	}
+
+	if meta.AppName == "" && fallbackName != "" {
+		meta.AppName = fallbackName
 	}
 
 	if meta.AppName == "" {
