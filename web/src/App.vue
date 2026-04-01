@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 interface AppMetadata {
   Hash: string
   AppName: string
+  Version: string
   Desktop: string
   TmpDir: string
   AlreadyInstalled: boolean
@@ -91,6 +92,7 @@ const handleImageError = (e: Event) => {
               </p>
             </div>
             <CardTitle class="text-2xl font-bold tracking-tight text-white mb-2">{{ metadata.AppName }}</CardTitle>
+            <p v-if="metadata.Version" class="text-sm text-zinc-400 font-medium">{{ metadata.Version }}</p>
           </CardHeader>
 
           <CardContent class="text-center p-0 mb-8 px-2">

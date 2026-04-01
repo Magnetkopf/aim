@@ -45,7 +45,7 @@ func ExecuteInstallation(meta *metadata.AppMetadata, action string) error {
 	}
 
 	// Update versions.json
-	if err := metadata.AddVersion(meta.AppName, meta.Hash); err != nil {
+	if err := metadata.AddVersion(meta.AppName, meta.Hash, meta.Version); err != nil {
 		fmt.Printf("Warning: failed to update versions.json: %v\n", err)
 	}
 

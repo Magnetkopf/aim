@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,6 +62,7 @@ func TestParseExtractedMetadata(t *testing.T) {
 
 	desktopContent := `[Desktop Entry]
 Name=TestApp
+X-AppImage-Version=1.2.3
 Exec=testapp
 Icon=testapp-icon
 Type=Application
@@ -95,6 +97,9 @@ Type=Application
 	}
 	if meta.TmpDir != tmpDir {
 		t.Errorf("TmpDir = %q, want %q", meta.TmpDir, tmpDir)
+	}
+	if meta.Version != "1.2.3" {
+		t.Errorf("Version = %q, want %q", meta.Version, "1.2.3")
 	}
 }
 
@@ -213,5 +218,42 @@ Exec=noname
 
 	if meta.AppName != "nameless app" {
 		t.Errorf("AppName = %q, want %q", meta.AppName, "nameless app")
+	}
+	if meta.Version != "" {
+		t.Errorf("Version = %q, want %q", meta.Version, "")
+	}
+}
+
+func TestAddVersion(t *testing.T) {
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	appName := "TestApp"
+	hash := "abc123"
+	version := "1.0.0"
+
+	if err := AddVersion(appName, hash, version); err != nil {
+		t.Fatalf("AddVersion returned error: %v", err)
+	}
+
+	versionsPath, _ := GetVersionsFile(appName)
+	data, err := os.ReadFile(versionsPath)
+	if err != nil {
+		t.Fatalf("could not read versions.json: %v", err)
+	}
+
+	var vf AppVersionsFile
+	if err := json.Unmarshal(data, &vf); err != nil {
+		t.Fatalf("could not parse versions.json: %v", err)
+	}
+
+	if len(vf.Versions) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(vf.Versions))
+	}
+	if vf.Versions[0].Hash != hash {
+		t.Errorf("Hash = %q, want %q", vf.Versions[0].Hash, hash)
+	}
+	if vf.Versions[0].Version != version {
+		t.Errorf("Version = %q, want %q", vf.Versions[0].Version, version)
 	}
 }

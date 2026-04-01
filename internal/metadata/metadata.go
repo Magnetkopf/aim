@@ -15,6 +15,7 @@ import (
 type AppMetadata struct {
 	Hash             string
 	AppName          string
+	Version          string
 	IconPath         string
 	Desktop          string // path to the extracted .desktop file
 	TmpDir           string // where squashfs-root is currently located
@@ -24,6 +25,7 @@ type AppMetadata struct {
 // AppVersion represents a single installed version in versions.json
 type AppVersion struct {
 	Hash        string    `json:"hash"`
+	Version     string    `json:"version"`
 	InstallTime time.Time `json:"install_time"`
 }
 
@@ -42,10 +44,14 @@ func GetVersionsFile(appName string) (string, error) {
 }
 
 // AddVersion records a newly installed version in versions.json
-func AddVersion(appName, hash string) error {
+func AddVersion(appName, hash, version string) error {
 	versionsPath, err := GetVersionsFile(appName)
 	if err != nil {
 		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(versionsPath), 0755); err != nil {
+		return fmt.Errorf("failed to create versions directory: %w", err)
 	}
 
 	var versionsFile AppVersionsFile
@@ -73,6 +79,7 @@ func AddVersion(appName, hash string) error {
 		// Add new version
 		versionsFile.Versions = append(versionsFile.Versions, AppVersion{
 			Hash:        hash,
+			Version:     version,
 			InstallTime: time.Now(),
 		})
 	}
@@ -209,6 +216,9 @@ func parseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, err
 		if inDesktopEntry {
 			if strings.HasPrefix(line, "X-AppImage-Name=") && meta.AppName == "" {
 				meta.AppName = strings.TrimPrefix(line, "X-AppImage-Name=")
+			}
+			if strings.HasPrefix(line, "X-AppImage-Version=") && meta.Version == "" {
+				meta.Version = strings.TrimPrefix(line, "X-AppImage-Version=")
 			}
 			if strings.HasPrefix(line, "Name=") && fallbackName == "" {
 				fallbackName = strings.TrimPrefix(line, "Name=")
