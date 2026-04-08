@@ -50,14 +50,15 @@ jobs:
 
     - name: Create tar.gz
       run: |
-        tar -czf aim_${{ matrix.target }}.tar.gz aim
+        mv aim-${{ matrix.target }} aim
+        tar -czf aim-${{ matrix.target }}.tar.gz aim
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.target }}
         path: |
-          aim_${{ matrix.target }}.tar.gz
+          aim-${{ matrix.target }}.tar.gz
 
   release:
     runs-on: ubuntu-latest
