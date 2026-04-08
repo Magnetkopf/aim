@@ -1,0 +1,80 @@
+name: Nightly Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            make_target: build-linux-amd64
+          - target: linux-386
+            make_target: build-linux-386
+          - target: linux-arm64
+            make_target: build-linux-arm64
+          - target: linux-arm
+            make_target: build-linux-arm
+          - target: linux-riscv64
+            make_target: build-linux-riscv64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.26'
+
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: '9'
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: 'pnpm'
+        cache-dependency-path: 'web/pnpm-lock.yaml'
+
+    - name: Build
+      run: make ${{ matrix.make_target }}
+
+    - name: Create tar.gz
+      run: |
+        tar -czf aim_${{ matrix.target }}.tar.gz aim
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.target }}
+        path: |
+          aim_${{ matrix.target }}.tar.gz
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: dist
+
+    - name: Flatten artifacts
+      run: |
+        mkdir -p assets
+        find dist -type f -exec cp {} assets/ \;
+
+    - name: Upload assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: assets/*
+        prerelease: true
+        tag_name: nightly
