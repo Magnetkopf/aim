@@ -24,7 +24,7 @@ func RunUI(meta *metadata.AppMetadata, staticFS http.FileSystem) (string, error)
 		return "", fmt.Errorf("could not start local server: %w", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	url := fmt.Sprintf("http://127.0.0.1:%d", port)
+	url := fmt.Sprintf("http://127.0.0.1:%d/#/installer", port)
 
 	actionChan := make(chan string)
 

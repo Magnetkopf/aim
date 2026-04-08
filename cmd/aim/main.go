@@ -9,12 +9,14 @@ import (
 
 	"github.com/Magnetkopf/aim/internal/installer"
 	"github.com/Magnetkopf/aim/internal/intercept"
+	m "github.com/Magnetkopf/aim/internal/manager"
 	"github.com/Magnetkopf/aim/internal/metadata"
 	"github.com/Magnetkopf/aim/web"
 )
 
 func main() {
-	var register,unregister bool
+	var manager, register, unregister bool
+	flag.BoolVar(&manager, "manager", false, "Launch the app manager web UI")
 	flag.BoolVar(&register, "register", false, "Register aim as the default handler for .AppImage files")
 	flag.BoolVar(&unregister, "unregister", false, "Unregister aim")
 
@@ -32,7 +34,24 @@ func main() {
 		if err := intercept.Unregister(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error unregistering aim: %v\n", err)
 			os.Exit(1)
-		} 
+		}
+		return
+	}
+
+	// Prepare the embedded UI filesystem
+	distFS, err := fs.Sub(web.UI, "dist")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not load embedded UI: %v\n", err)
+		os.Exit(1)
+	}
+	staticFS := http.FS(distFS)
+
+	if manager {
+		fmt.Println("Launching App Manager...")
+		if err := m.RunManager(staticFS); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running manager: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -43,6 +62,7 @@ func main() {
 		fmt.Println("Usage: aim [appimage_file]")
 		fmt.Println("       aim --register")
 		fmt.Println("       aim --unregister")
+		fmt.Println("       aim --manager")
 		os.Exit(1)
 	}
 
@@ -70,15 +90,8 @@ func main() {
 
 	fmt.Println("Starting Web UI Installer...")
 
-	// Prepare the embedded UI filesystem
-	distFS, err := fs.Sub(web.UI, "dist")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not load embedded UI: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Open the installer UI and wait for user's action
-	action, err := installer.RunUI(meta, http.FS(distFS))
+	action, err := installer.RunUI(meta, staticFS)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error running installer interface: %v\n", err)
 		os.Exit(1)
