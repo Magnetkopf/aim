@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
+
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 // Register configures system to open .AppImage files with aim
@@ -14,17 +15,12 @@ func Register() error {
 		return fmt.Errorf("failed to get executable path: %w", err)
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "applications")
+	appDir := paths.ApplicationsDir()
 	if err := os.MkdirAll(appDir, 0755); err != nil {
 		return fmt.Errorf("failed to create applications directory: %w", err)
 	}
 
-	desktopFilePath := filepath.Join(appDir, "aim.desktop")
+	desktopFilePath := paths.DesktopFilePath()
 
 	desktopFileContent := fmt.Sprintf(`[Desktop Entry]
 Name=aim

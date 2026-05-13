@@ -3,22 +3,17 @@ package installer
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/Magnetkopf/aim/internal/desktop"
 	"github.com/Magnetkopf/aim/internal/metadata"
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 // ExecuteInstallation finalizing the XDG setup
 func ExecuteInstallation(meta *metadata.AppMetadata, action string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home dir: %w", err)
-	}
-
-	appBaseDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", meta.AppName)
-	versionDir := filepath.Join(appBaseDir, meta.Hash)
-	currentSymlink := filepath.Join(appBaseDir, "current")
+	appBaseDir := paths.AppDir(meta.AppName)
+	versionDir := paths.VersionDir(meta.AppName, meta.Hash)
+	currentSymlink := paths.CurrentSymlink(meta.AppName)
 
 	// Move TmpDir to VersionDir
 	if err := os.MkdirAll(appBaseDir, 0755); err != nil {

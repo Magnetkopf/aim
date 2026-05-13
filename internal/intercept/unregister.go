@@ -4,22 +4,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 // Unregister removes the system configuration for aim
 func Unregister() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "applications")
-	desktopFilePath := filepath.Join(appDir, "aim.desktop")
+	appDir := paths.ApplicationsDir()
+	desktopFilePath := paths.DesktopFilePath()
 
 	fmt.Println("Removing aim as default handler for AppImage...")
-	mimeAppsPath := filepath.Join(homeDir, ".config", "mimeapps.list")
+	mimeAppsPath := paths.MimeAppsListPath()
 	if err := removeFromMimeAppsList(mimeAppsPath, "application/vnd.appimage", "aim.desktop"); err != nil {
 		fmt.Printf("Warning: Failed to update mimeapps.list: %v\n", err)
 	}

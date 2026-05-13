@@ -6,17 +6,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 // UpdateDesktopEntry updates the system .desktop file for the given app by rewriting
 func UpdateDesktopEntry(appName string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home dir: %w", err)
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName)
-	currentSymlink := filepath.Join(appDir, "current")
+	appDir := paths.AppDir(appName)
+	currentSymlink := paths.CurrentSymlink(appName)
 
 	target, err := os.Readlink(currentSymlink)
 	if err != nil {
@@ -80,14 +77,14 @@ func UpdateDesktopEntry(appName string) error {
 	updatedDesktop := strings.Join(updatedLines, "\n")
 
 	targetDesktopName := fmt.Sprintf("aim-%s.desktop", strings.ReplaceAll(appName, " ", ""))
-	targetDesktopPath := filepath.Join(homeDir, ".local", "share", "applications", targetDesktopName)
+	targetDesktopPath := filepath.Join(paths.ApplicationsDir(), targetDesktopName)
 
 	if err := os.WriteFile(targetDesktopPath, []byte(updatedDesktop), 0644); err != nil {
 		return fmt.Errorf("failed to write system desktop file: %w", err)
 	}
 
 	// Update desktop DB
-	exec.Command("update-desktop-database", filepath.Join(homeDir, ".local", "share", "applications")).Run()
+	exec.Command("update-desktop-database", paths.ApplicationsDir()).Run()
 
 	return nil
 }

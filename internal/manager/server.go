@@ -11,6 +11,7 @@ import (
 
 	"github.com/Magnetkopf/aim/internal/desktop"
 	"github.com/Magnetkopf/aim/internal/metadata"
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 // AppInfo represents installed app information
@@ -179,12 +180,7 @@ func RunManager(staticFS http.FileSystem) error {
 }
 
 func getInstalledApps() ([]AppInfo, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	appsDir := filepath.Join(homeDir, ".local", "share", "aim", "apps")
+	appsDir := paths.AppsDir()
 
 	// Check if directory exists
 	if _, err := os.Stat(appsDir); os.IsNotExist(err) {
@@ -203,10 +199,10 @@ func getInstalledApps() ([]AppInfo, error) {
 		}
 
 		appName := entry.Name()
-		appDir := filepath.Join(appsDir, appName)
+		appDir := paths.AppDir(appName)
 
 		// Get current symlink target
-		currentLink := filepath.Join(appDir, "current")
+		currentLink := paths.CurrentSymlink(appName)
 		currentHash := ""
 		if target, err := os.Readlink(currentLink); err == nil {
 			currentHash = filepath.Base(target)
@@ -219,7 +215,7 @@ func getInstalledApps() ([]AppInfo, error) {
 		}
 
 		// Count versions
-		versionsFile := filepath.Join(appDir, "versions.json")
+		versionsFile := paths.VersionsFile(appName)
 		versionCount := 0
 		if data, err := os.ReadFile(versionsFile); err == nil {
 			var vf metadata.AppVersionsFile
@@ -240,12 +236,7 @@ func getInstalledApps() ([]AppInfo, error) {
 }
 
 func getAppDetail(appName string) (*AppDetail, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName)
+	appDir := paths.AppDir(appName)
 
 	// Check if app exists
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
@@ -253,7 +244,7 @@ func getAppDetail(appName string) (*AppDetail, error) {
 	}
 
 	// Get current symlink target
-	currentLink := filepath.Join(appDir, "current")
+	currentLink := paths.CurrentSymlink(appName)
 	currentHash := ""
 	if target, err := os.Readlink(currentLink); err == nil {
 		currentHash = filepath.Base(target)
@@ -266,7 +257,7 @@ func getAppDetail(appName string) (*AppDetail, error) {
 	}
 
 	// Read versions
-	versionsFile := filepath.Join(appDir, "versions.json")
+	versionsFile := paths.VersionsFile(appName)
 	var versions []VersionInfo
 	if data, err := os.ReadFile(versionsFile); err == nil {
 		var vf metadata.AppVersionsFile
@@ -290,14 +281,8 @@ func getAppDetail(appName string) (*AppDetail, error) {
 }
 
 func switchVersion(appName, hash string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName)
-	versionDir := filepath.Join(appDir, hash)
-	currentSymlink := filepath.Join(appDir, "current")
+	versionDir := paths.VersionDir(appName, hash)
+	currentSymlink := paths.CurrentSymlink(appName)
 
 	// Verify version exists
 	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
@@ -318,13 +303,8 @@ func switchVersion(appName, hash string) error {
 }
 
 func getAppIconPath(appName string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	appDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName)
-	currentLink := filepath.Join(appDir, "current")
+	appDir := paths.AppDir(appName)
+	currentLink := paths.CurrentSymlink(appName)
 
 	target, err := os.Readlink(currentLink)
 	if err != nil {

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Magnetkopf/aim/internal/paths"
 )
 
 type AppMetadata struct {
@@ -36,11 +38,7 @@ type AppVersionsFile struct {
 
 // GetVersionsFile returns the path to the versions.json for an app
 func GetVersionsFile(appName string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".local", "share", "aim", "apps", appName, "versions.json"), nil
+	return paths.VersionsFile(appName), nil
 }
 
 // AddVersion records a newly installed version in versions.json
@@ -99,12 +97,7 @@ func AddVersion(appName, hash, version string) error {
 
 // HashExists checks if the given hash version is already installed for the app
 func HashExists(appName, hash string) bool {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return false
-	}
-
-	versionDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName, hash)
+	versionDir := paths.VersionDir(appName, hash)
 	if _, err := os.Stat(versionDir); err == nil {
 		return true
 	}
@@ -135,13 +128,8 @@ func Extract(appImagePath string) (*AppMetadata, error) {
 		return nil, err
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("could not find user home directory: %w", err)
-	}
-
 	// 2. Setup extraction tmp directory
-	tmpDir := filepath.Join(homeDir, ".local", "share", "aim", "tmp", hash)
+	tmpDir := paths.AppTmpDir(hash)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create temporary extraction dir: %w", err)
 	}
