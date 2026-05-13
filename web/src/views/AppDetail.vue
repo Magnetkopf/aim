@@ -25,17 +25,22 @@ const appName = computed(() => decodeURIComponent(route.params.appName as string
 const app = ref<AppDetail | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const switchingHash = ref<string | null>(null)
+
+const fetchAppDetail = async () => {
+  const res = await fetch(`/api/app/${encodeURIComponent(appName.value)}`)
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('App not found')
+    }
+    throw new Error('Failed to fetch app details')
+  }
+  app.value = await res.json()
+}
 
 onMounted(async () => {
   try {
-    const res = await fetch(`/api/app/${encodeURIComponent(appName.value)}`)
-    if (!res.ok) {
-      if (res.status === 404) {
-        throw new Error('App not found')
-      }
-      throw new Error('Failed to fetch app details')
-    }
-    app.value = await res.json()
+    await fetchAppDetail()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Unknown error'
   } finally {
@@ -54,6 +59,26 @@ const formatHash = (hash: string) => {
 const handleImageError = (e: Event) => {
   const target = e.target as HTMLImageElement
   target.style.display = 'none'
+}
+
+const switchVersion = async (hash: string) => {
+  if (!app.value || switchingHash.value) return
+  switchingHash.value = hash
+  try {
+    const res = await fetch(`/api/switch/${encodeURIComponent(appName.value)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash })
+    })
+    if (!res.ok) {
+      throw new Error('Failed to switch version')
+    }
+    await fetchAppDetail()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Unknown error'
+  } finally {
+    switchingHash.value = null
+  }
 }
 </script>
 
@@ -160,6 +185,18 @@ const handleImageError = (e: Event) => {
                     </div>
                   </div>
                 </div>
+
+                <!-- Switch button -->
+                <Button
+                  v-if="version.hash !== app.currentHash"
+                  variant="outline"
+                  size="sm"
+                  class="text-white bg-zinc-800 border-zinc-600"
+                  :disabled="switchingHash !== null"
+                  @click="switchVersion(version.hash)"
+                >
+                  {{ switchingHash === version.hash ? 'Switching...' : 'Switch' }}
+                </Button>
               </div>
             </CardContent>
           </Card>

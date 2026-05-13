@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/Magnetkopf/aim/internal/desktop"
 	"github.com/Magnetkopf/aim/internal/metadata"
 )
 
@@ -88,6 +89,43 @@ func RunManager(staticFS http.FileSystem) error {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(detail)
+	})
+
+	// API: Switch app version
+	mux.HandleFunc("/api/switch/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		appName := r.URL.Path[len("/api/switch/"):]
+		if appName == "" {
+			http.Error(w, "App name required", http.StatusBadRequest)
+			return
+		}
+
+		var req struct {
+			Hash string `json:"hash"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.Hash == "" {
+			http.Error(w, "Hash required", http.StatusBadRequest)
+			return
+		}
+
+		if err := switchVersion(appName, req.Hash); err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	// API: Get app icon
@@ -249,6 +287,34 @@ func getAppDetail(appName string) (*AppDetail, error) {
 		CurrentHash: currentHash,
 		Versions:    versions,
 	}, nil
+}
+
+func switchVersion(appName, hash string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	appDir := filepath.Join(homeDir, ".local", "share", "aim", "apps", appName)
+	versionDir := filepath.Join(appDir, hash)
+	currentSymlink := filepath.Join(appDir, "current")
+
+	// Verify version exists
+	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
+		return fmt.Errorf("version not found")
+	}
+
+	// Update symlink
+	os.Remove(currentSymlink)
+	if err := os.Symlink(hash, currentSymlink); err != nil {
+		return fmt.Errorf("failed to create current symlink: %w", err)
+	}
+
+	if err := desktop.UpdateDesktopEntry(appName); err != nil {
+		return fmt.Errorf("failed to update desktop entry: %w", err)
+	}
+
+	return nil
 }
 
 func getAppIconPath(appName string) (string, error) {
