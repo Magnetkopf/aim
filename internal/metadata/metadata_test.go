@@ -78,9 +78,9 @@ Type=Application
 	}
 
 	hash := "deadbeef"
-	meta, err := parseExtractedMetadata(hash, tmpDir, squashfsDir)
+	meta, err := ParseExtractedMetadata(hash, tmpDir, squashfsDir)
 	if err != nil {
-		t.Fatalf("parseExtractedMetadata returned error: %v", err)
+		t.Fatalf("ParseExtractedMetadata returned error: %v", err)
 	}
 
 	if meta.Hash != hash {
@@ -110,7 +110,7 @@ func TestParseExtractedMetadata_NoDesktopFile(t *testing.T) {
 		t.Fatalf("could not create squashfs-root: %v", err)
 	}
 
-	_, err := parseExtractedMetadata("hash", tmpDir, squashfsDir)
+	_, err := ParseExtractedMetadata("hash", tmpDir, squashfsDir)
 	if err == nil {
 		t.Fatalf("expected error when no .desktop file found, got nil")
 	}
@@ -138,9 +138,9 @@ Icon=nonexistent-icon
 		t.Fatalf("could not write fallback icon: %v", err)
 	}
 
-	meta, err := parseExtractedMetadata("hash", tmpDir, squashfsDir)
+	meta, err := ParseExtractedMetadata("hash", tmpDir, squashfsDir)
 	if err != nil {
-		t.Fatalf("parseExtractedMetadata returned error: %v", err)
+		t.Fatalf("ParseExtractedMetadata returned error: %v", err)
 	}
 
 	if meta.IconPath != fallbackIcon {
@@ -183,9 +183,9 @@ Name=idk
 		t.Fatalf("could not write icon file: %v", err)
 	}
 
-	meta, err := parseExtractedMetadata("hash", tmpDir, squashfsDir)
+	meta, err := ParseExtractedMetadata("hash", tmpDir, squashfsDir)
 	if err != nil {
-		t.Fatalf("parseExtractedMetadata returned error: %v", err)
+		t.Fatalf("ParseExtractedMetadata returned error: %v", err)
 	}
 
 	if meta.AppName != "RealApp" {
@@ -211,9 +211,9 @@ Exec=noname
 		t.Fatalf("could not write desktop file: %v", err)
 	}
 
-	meta, err := parseExtractedMetadata("hash", tmpDir, squashfsDir)
+	meta, err := ParseExtractedMetadata("hash", tmpDir, squashfsDir)
 	if err != nil {
-		t.Fatalf("parseExtractedMetadata returned error: %v", err)
+		t.Fatalf("ParseExtractedMetadata returned error: %v", err)
 	}
 
 	if meta.AppName != "nameless app" {

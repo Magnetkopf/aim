@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	m "github.com/Magnetkopf/aim/internal/metadata"
 	"github.com/Magnetkopf/aim/internal/paths"
 )
 
@@ -23,10 +24,16 @@ func UpdateDesktopEntry(appName string) error {
 
 	versionDir := filepath.Join(appDir, hash)
 	squashfsDir := filepath.Join(versionDir, "squashfs-root")
+	tmpDir := paths.AppTmpDir(hash)
 
 	entries, err := os.ReadDir(squashfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to read squashfs-root: %w", err)
+	}
+
+	metadata, err := m.ParseExtractedMetadata(hash, tmpDir, squashfsDir)
+	if err != nil {
+		return fmt.Errorf("failed to parse extracted metadata: %w", err)
 	}
 
 	var desktopFile string
@@ -46,14 +53,9 @@ func UpdateDesktopEntry(appName string) error {
 	}
 
 	appRunPath := filepath.Join(currentSymlink, "squashfs-root", "AppRun")
-	iconPath := ""
+	iconPath := filepath.Join(currentSymlink, "squashfs-root", metadata.IconFile)
+
 	lines := splitLines(string(desktopBytes))
-	for _, line := range lines {
-		if strings.HasPrefix(line, "Icon=") {
-			iconPath = filepath.Join(currentSymlink, "squashfs-root", filepath.Base(strings.TrimPrefix(line, "Icon=")))
-			break
-		}
-	}
 
 	var updatedLines []string
 	for _, line := range lines {

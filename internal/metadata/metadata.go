@@ -19,6 +19,7 @@ type AppMetadata struct {
 	AppName          string
 	Version          string
 	IconPath         string
+	IconFile         string
 	Desktop          string // path to the extracted .desktop file
 	TmpDir           string // where squashfs-root is currently located
 	AlreadyInstalled bool   // true if this exact hash version is already installed
@@ -154,11 +155,11 @@ func Extract(appImagePath string) (*AppMetadata, error) {
 	}
 
 	// 4. Parse the extracted metadata
-	return parseExtractedMetadata(hash, tmpDir, squashfsDir)
+	return ParseExtractedMetadata(hash, tmpDir, squashfsDir)
 }
 
-// parseExtractedMetadata looks for .desktop file and the icon
-func parseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, error) {
+// ParseExtractedMetadata looks for .desktop file and the icon
+func ParseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, error) {
 	meta := &AppMetadata{
 		Hash:   hash,
 		TmpDir: tmpDir,
@@ -235,8 +236,10 @@ func parseExtractedMetadata(hash, tmpDir, squashfsDir string) (*AppMetadata, err
 
 		if _, err := os.Stat(pngPath); err == nil {
 			meta.IconPath = pngPath
+			meta.IconFile = iconName + ".png"
 		} else if _, err := os.Stat(svgPath); err == nil {
 			meta.IconPath = svgPath
+			meta.IconFile = iconName + ".svg"
 		} else {
 			// fallback: some silly one just have a .png or .svg without matching the exact name
 			for _, entry := range entries {
