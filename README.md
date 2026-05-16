@@ -8,11 +8,12 @@
 - **Natively integrated:** You can simply double-click any `.AppImage` in your file explorer to install them.
 - **Immutable paths:** Applications will be isolated under `<AppName>/<SHA256>`.
 - **Desktop friendly:** Automatically copies icons and `.desktop`!
+- **App Manager:** View and switch versions of all your apps.
 
 ## Install
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Magnetkopf/aim/main/install.sh | sudo bash
+curl -sL https://raw.githubusercontent.com/Magnetkopf/aim/refs/heads/main/install.sh | sudo bash
 ```
 
 ## Build
