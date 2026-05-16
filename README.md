@@ -9,6 +9,12 @@
 - **Immutable paths:** Applications will be isolated under `<AppName>/<SHA256>`.
 - **Desktop friendly:** Automatically copies icons and `.desktop`!
 
+## Install
+
+```bash
+curl -sL https://raw.githubusercontent.com/Magnetkopf/aim/main/install.sh | sudo bash
+```
+
 ## Build
 
 1. **Build the Web UI**
