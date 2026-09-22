@@ -80,7 +80,7 @@ func RunUI(meta *metadata.AppMetadata, staticFS http.FileSystem) (string, error)
 	} else {
 		// Mock handler for debug without built dist
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Please build the webui first. Run: pnpm build in /web"))
+			w.Write([]byte("Please build the webui first. Run: bun run build in /web"))
 		})
 	}
 

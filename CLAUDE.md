@@ -8,7 +8,7 @@ The Vue frontend must be built before the Go binary because the dist is embedded
 
 ```bash
 # Build frontend
-cd web && pnpm install && pnpm run build && cd ..
+cd web && bun install && bun run build && cd ..
 
 # Build Go binary
 go build -o aim ./cmd/aim

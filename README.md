@@ -21,8 +21,8 @@ curl -sL https://raw.githubusercontent.com/Magnetkopf/aim/refs/heads/main/instal
 1. **Build the Web UI**
    ```bash
    cd web
-   pnpm install
-   pnpm run build
+   bun install
+   bun run build
    cd ..
    ```
 

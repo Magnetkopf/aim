@@ -3,7 +3,7 @@ BINARY_NAME=aim
 # Frontend source files
 WEB_SRC_FILES := $(shell find web/src -type f 2>/dev/null)
 WEB_PUBLIC_FILES := $(shell find web/public -type f 2>/dev/null)
-WEB_DEPS := web/package.json web/pnpm-lock.yaml $(WEB_SRC_FILES) $(WEB_PUBLIC_FILES)
+WEB_DEPS := web/package.json web/bun.lock $(WEB_SRC_FILES) $(WEB_PUBLIC_FILES)
 
 .PHONY: all build backend frontend build-all clean
 
@@ -14,7 +14,7 @@ build: backend
 
 # Build frontend only if source files changed
 web/dist: $(WEB_DEPS)
-	@cd web && pnpm install && pnpm run build
+	@cd web && bun install --frozen-lockfile && bun run build
 
 frontend: web/dist
 
@@ -31,5 +31,3 @@ build-linux-%: web/dist
 
 clean:
 	rm -rf web/dist $(BINARY_NAME) $(BINARY_NAME)-linux-*
-
-
