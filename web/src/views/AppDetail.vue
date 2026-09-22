@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardTitle, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Package, Calendar, CheckCircle2 } from 'lucide-vue-next'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ArrowLeft, Package, Calendar, CheckCircle2, Trash2 } from 'lucide-vue-next'
 
 interface VersionInfo {
   hash: string
@@ -26,6 +27,11 @@ const app = ref<AppDetail | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const switchingHash = ref<string | null>(null)
+const uninstalling = ref(false)
+const uninstallingHash = ref<string | null>(null)
+const dialogOpen = ref(false)
+const dialogAction = ref<'app' | 'version' | null>(null)
+const selectedVersion = ref<VersionInfo | null>(null)
 
 const fetchAppDetail = async () => {
   const res = await fetch(`/api/app/${encodeURIComponent(appName.value)}`)
@@ -80,6 +86,68 @@ const switchVersion = async (hash: string) => {
     switchingHash.value = null
   }
 }
+
+const openAppUninstallDialog = () => {
+  if (!app.value || uninstalling.value || uninstallingHash.value) return
+  dialogAction.value = 'app'
+  selectedVersion.value = null
+  dialogOpen.value = true
+}
+
+const openVersionUninstallDialog = (version: VersionInfo) => {
+  if (!app.value || app.value.versions.length <= 1 || uninstalling.value || uninstallingHash.value) return
+  dialogAction.value = 'version'
+  selectedVersion.value = version
+  dialogOpen.value = true
+}
+
+const confirmUninstall = async () => {
+  if (!app.value || !dialogAction.value) return
+
+  const action = dialogAction.value
+  const version = selectedVersion.value
+  dialogOpen.value = false
+  error.value = null
+
+  if (action === 'app') {
+    uninstalling.value = true
+  } else if (version) {
+    uninstallingHash.value = version.hash
+  } else {
+    return
+  }
+
+  try {
+    if (action === 'app') {
+      const res = await fetch(`/api/app/${encodeURIComponent(appName.value)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        throw new Error(res.status === 404 ? 'App not found' : 'Failed to uninstall app')
+      }
+      await router.push('/')
+      return
+    }
+
+    const res = await fetch(
+      `/api/app/${encodeURIComponent(appName.value)}/versions/${encodeURIComponent(version!.hash)}`,
+      { method: 'DELETE' },
+    )
+    if (!res.ok) {
+      throw new Error(
+        res.status === 409
+          ? 'This is the only installed version. Uninstall the entire app instead.'
+          : res.status === 404
+            ? 'Version not found'
+            : 'Failed to uninstall version',
+      )
+    }
+    await fetchAppDetail()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Unknown error'
+  } finally {
+    uninstalling.value = false
+    uninstallingHash.value = null
+  }
+}
 </script>
 
 <template>
@@ -128,23 +196,34 @@ const switchVersion = async (hash: string) => {
       <!-- App details -->
       <template v-else-if="app">
         <!-- App header -->
-        <div class="flex items-center gap-5 mb-8">
-          <div class="w-20 h-20 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-            <img
-              v-if="app.iconPath"
-              :src="`/api/icon/${encodeURIComponent(app.name)}`"
-              :alt="app.name"
-              class="w-14 h-14 object-contain"
-              @error="handleImageError"
-            />
-            <Package v-else class="w-8 h-8 text-zinc-600" />
+        <div class="flex items-start justify-between gap-5 mb-8">
+          <div class="flex items-center gap-5 min-w-0">
+            <div class="w-20 h-20 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img
+                v-if="app.iconPath"
+                :src="`/api/icon/${encodeURIComponent(app.name)}`"
+                :alt="app.name"
+                class="w-14 h-14 object-contain"
+                @error="handleImageError"
+              />
+              <Package v-else class="w-8 h-8 text-zinc-600" />
+            </div>
+            <div class="min-w-0">
+              <h1 class="text-3xl font-bold text-white mb-1 truncate">{{ app.name }}</h1>
+              <p class="text-zinc-400">
+                {{ app.versions.length }} version{{ app.versions.length !== 1 ? 's' : '' }} installed
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 class="text-3xl font-bold text-white mb-1">{{ app.name }}</h1>
-            <p class="text-zinc-400">
-              {{ app.versions.length }} version{{ app.versions.length !== 1 ? 's' : '' }} installed
-            </p>
-          </div>
+          <Button
+            variant="outline"
+            class="text-red-300 border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:text-red-200 flex-shrink-0"
+            :disabled="uninstalling || uninstallingHash !== null || switchingHash !== null"
+            @click="openAppUninstallDialog"
+          >
+            <Trash2 class="w-4 h-4 mr-2" />
+            {{ uninstalling ? 'Uninstalling...' : 'Uninstall' }}
+          </Button>
         </div>
 
         <!-- Versions list -->
@@ -186,22 +265,59 @@ const switchVersion = async (hash: string) => {
                   </div>
                 </div>
 
-                <!-- Switch button -->
-                <Button
-                  v-if="version.hash !== app.currentHash"
-                  variant="outline"
-                  size="sm"
-                  class="text-white bg-zinc-800 border-zinc-600"
-                  :disabled="switchingHash !== null"
-                  @click="switchVersion(version.hash)"
-                >
-                  {{ switchingHash === version.hash ? 'Switching...' : 'Switch' }}
-                </Button>
+                <div class="flex items-center gap-2">
+                  <!-- Switch button -->
+                  <Button
+                    v-if="version.hash !== app.currentHash"
+                    variant="outline"
+                    size="sm"
+                    class="text-white bg-zinc-800 border-zinc-600"
+                    :disabled="switchingHash !== null || uninstalling || uninstallingHash !== null"
+                    @click="switchVersion(version.hash)"
+                  >
+                    {{ switchingHash === version.hash ? 'Switching...' : 'Switch' }}
+                  </Button>
+                  <Button
+                    v-if="app.versions.length > 1"
+                    variant="outline"
+                    size="sm"
+                    class="text-red-300 bg-red-500/5 border-red-500/40 hover:bg-red-500/15 hover:text-red-200"
+                    :disabled="switchingHash !== null || uninstalling || uninstallingHash !== null"
+                    @click="openVersionUninstallDialog(version)"
+                  >
+                    <Trash2 class="w-3.5 h-3.5" />
+                    {{ uninstallingHash === version.hash ? 'Uninstalling...' : 'Uninstall' }}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </template>
     </div>
+
+    <Dialog v-model:open="dialogOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {{ dialogAction === 'app' ? `Uninstall ${app?.name}?` : `Uninstall version ${formatHash(selectedVersion?.hash || '')}?` }}
+          </DialogTitle>
+          <DialogDescription v-if="dialogAction === 'app'">
+            This will remove all installed versions, the desktop launcher, and stored metadata. This action cannot be undone.
+          </DialogDescription>
+          <DialogDescription v-else>
+            This will remove this installed version and its files. Other installed versions will remain available.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" :disabled="uninstalling || uninstallingHash !== null" @click="dialogOpen = false">
+            Cancel
+          </Button>
+          <Button variant="destructive" :disabled="uninstalling || uninstallingHash !== null" @click="confirmUninstall">
+            {{ dialogAction === 'app' ? 'Uninstall app' : 'Uninstall version' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

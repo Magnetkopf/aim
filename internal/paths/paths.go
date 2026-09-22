@@ -3,6 +3,7 @@ package paths
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // IsRoot returns true if the current process is running as root.
@@ -74,7 +75,7 @@ func DesktopFilePath() string {
 
 // AppDesktopFilePath returns the path to an app's desktop file.
 func AppDesktopFilePath(appName string) string {
-	return filepath.Join(ApplicationsDir(), "aim-"+appName+".desktop")
+	return filepath.Join(ApplicationsDir(), "aim-"+strings.ReplaceAll(appName, " ", "")+".desktop")
 }
 
 // MimeAppsListPath returns the path to mimeapps.list.

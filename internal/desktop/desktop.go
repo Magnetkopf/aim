@@ -78,14 +78,25 @@ func UpdateDesktopEntry(appName string) error {
 
 	updatedDesktop := strings.Join(updatedLines, "\n")
 
-	targetDesktopName := fmt.Sprintf("aim-%s.desktop", strings.ReplaceAll(appName, " ", ""))
-	targetDesktopPath := filepath.Join(paths.ApplicationsDir(), targetDesktopName)
+	targetDesktopPath := paths.AppDesktopFilePath(appName)
 
 	if err := os.WriteFile(targetDesktopPath, []byte(updatedDesktop), 0644); err != nil {
 		return fmt.Errorf("failed to write system desktop file: %w", err)
 	}
 
 	// Update desktop DB
+	exec.Command("update-desktop-database", paths.ApplicationsDir()).Run()
+
+	return nil
+}
+
+// RemoveDesktopEntry removes .desktop file and refreshes db
+func RemoveDesktopEntry(appName string) error {
+	desktopPath := paths.AppDesktopFilePath(appName)
+	if err := os.Remove(desktopPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove desktop file: %w", err)
+	}
+
 	exec.Command("update-desktop-database", paths.ApplicationsDir()).Run()
 
 	return nil

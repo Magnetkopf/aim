@@ -2,12 +2,14 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/Magnetkopf/aim/internal/desktop"
 	"github.com/Magnetkopf/aim/internal/metadata"
@@ -31,11 +33,16 @@ type VersionInfo struct {
 
 // AppDetail represents detailed app information
 type AppDetail struct {
-	Name         string        `json:"name"`
-	IconPath     string        `json:"iconPath,omitempty"`
-	CurrentHash  string        `json:"currentHash,omitempty"`
-	Versions     []VersionInfo `json:"versions"`
+	Name        string        `json:"name"`
+	IconPath    string        `json:"iconPath,omitempty"`
+	CurrentHash string        `json:"currentHash,omitempty"`
+	Versions    []VersionInfo `json:"versions"`
 }
+
+var (
+	errVersionNotFound = errors.New("version not found")
+	errLastVersion     = errors.New("cannot uninstall the last version; uninstall the entire app instead")
+)
 
 // RunManager starts the manager web UI server
 func RunManager(staticFS http.FileSystem) error {
@@ -64,17 +71,58 @@ func RunManager(staticFS http.FileSystem) error {
 		json.NewEncoder(w).Encode(apps)
 	})
 
-	// API: Get app details
+	// API: Get app details or uninstall an app
 	mux.HandleFunc("/api/app/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		appPath := strings.TrimPrefix(r.URL.Path, "/api/app/")
+		if versionIndex := strings.LastIndex(appPath, "/versions/"); versionIndex >= 0 {
+			if r.Method != http.MethodDelete {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			appName := appPath[:versionIndex]
+			hash := appPath[versionIndex+len("/versions/"):]
+			if appName == "" || hash == "" {
+				http.Error(w, "App name and version hash required", http.StatusBadRequest)
+				return
+			}
+
+			if err := uninstallVersion(appName, hash); err != nil {
+				switch {
+				case errors.Is(err, errVersionNotFound), os.IsNotExist(err):
+					http.Error(w, "Version not found", http.StatusNotFound)
+				case errors.Is(err, errLastVersion):
+					http.Error(w, err.Error(), http.StatusConflict)
+				default:
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		// Extract app name from path: /api/app/{name}
-		appName := r.URL.Path[len("/api/app/"):]
+		appName := appPath
 		if appName == "" {
 			http.Error(w, "App name required", http.StatusBadRequest)
+			return
+		}
+
+		if r.Method == http.MethodDelete {
+			if err := uninstallApp(appName); err != nil {
+				if os.IsNotExist(err) {
+					http.Error(w, "App not found", http.StatusNotFound)
+					return
+				}
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -297,6 +345,113 @@ func switchVersion(appName, hash string) error {
 
 	if err := desktop.UpdateDesktopEntry(appName); err != nil {
 		return fmt.Errorf("failed to update desktop entry: %w", err)
+	}
+
+	return nil
+}
+
+func uninstallApp(appName string) error {
+	if appName == "." || appName == ".." || strings.ContainsAny(appName, `/\\`) {
+		return fmt.Errorf("invalid app name")
+	}
+
+	appDir := paths.AppDir(appName)
+	info, err := os.Stat(appDir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("app path is not a directory")
+	}
+
+	// Remove the launcher first so it cannot point at an app while the files
+	// are being removed. The app directory contains every installed version,
+	// versions.json, and the extracted icons.
+	if err := desktop.RemoveDesktopEntry(appName); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(appDir); err != nil {
+		return fmt.Errorf("failed to remove app files: %w", err)
+	}
+
+	return nil
+}
+
+func uninstallVersion(appName, hash string) error {
+	if appName == "." || appName == ".." || strings.ContainsAny(appName, `/\\`) {
+		return fmt.Errorf("invalid app name")
+	}
+	if hash == "." || hash == ".." || strings.ContainsAny(hash, `/\\`) {
+		return fmt.Errorf("invalid version hash")
+	}
+
+	appDir := paths.AppDir(appName)
+	info, err := os.Stat(appDir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("app path is not a directory")
+	}
+
+	versionsPath := paths.VersionsFile(appName)
+	data, err := os.ReadFile(versionsPath)
+	if err != nil {
+		return fmt.Errorf("failed to read versions.json: %w", err)
+	}
+	var versionsFile metadata.AppVersionsFile
+	if err := json.Unmarshal(data, &versionsFile); err != nil {
+		return fmt.Errorf("failed to parse versions.json: %w", err)
+	}
+	if len(versionsFile.Versions) <= 1 {
+		return errLastVersion
+	}
+
+	versionIndex := -1
+	for i, version := range versionsFile.Versions {
+		if version.Hash == hash {
+			versionIndex = i
+			break
+		}
+	}
+	if versionIndex < 0 {
+		return errVersionNotFound
+	}
+
+	versionDir := paths.VersionDir(appName, hash)
+	if _, err := os.Stat(versionDir); err != nil {
+		return err
+	}
+
+	// Removing the active version must leave the launcher pointing at a
+	// working version. Use the first remaining entry as the fallback.
+	currentHash := ""
+	if target, err := os.Readlink(paths.CurrentSymlink(appName)); err == nil {
+		currentHash = filepath.Base(target)
+	}
+	if currentHash == hash {
+		fallbackHash := ""
+		for _, version := range versionsFile.Versions {
+			if version.Hash != hash {
+				fallbackHash = version.Hash
+				break
+			}
+		}
+		if err := switchVersion(appName, fallbackHash); err != nil {
+			return fmt.Errorf("failed to switch to remaining version: %w", err)
+		}
+	}
+
+	if err := os.RemoveAll(versionDir); err != nil {
+		return fmt.Errorf("failed to remove version files: %w", err)
+	}
+	versionsFile.Versions = append(versionsFile.Versions[:versionIndex], versionsFile.Versions[versionIndex+1:]...)
+	updatedData, err := json.MarshalIndent(versionsFile, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to encode versions.json: %w", err)
+	}
+	if err := os.WriteFile(versionsPath, updatedData, 0644); err != nil {
+		return fmt.Errorf("failed to update versions.json: %w", err)
 	}
 
 	return nil
