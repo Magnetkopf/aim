@@ -11,12 +11,14 @@ import (
 	"github.com/Magnetkopf/aim/internal/intercept"
 	m "github.com/Magnetkopf/aim/internal/manager"
 	"github.com/Magnetkopf/aim/internal/metadata"
+	"github.com/Magnetkopf/aim/internal/picker"
 	"github.com/Magnetkopf/aim/web"
 )
 
 func main() {
-	var manager, register, unregister bool
+	var manager, register, unregister, gui bool
 	flag.BoolVar(&manager, "manager", false, "Launch the app manager web UI")
+	flag.BoolVar(&gui, "gui", false, "Open a window to drop an AppImage")
 	flag.BoolVar(&register, "register", false, "Register aim as the default handler for .AppImage files")
 	flag.BoolVar(&unregister, "unregister", false, "Unregister aim")
 
@@ -33,6 +35,14 @@ func main() {
 	if unregister {
 		if err := intercept.Unregister(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error unregistering aim: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if gui {
+		if err := picker.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running AppImage picker: %v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -63,6 +73,7 @@ func main() {
 		fmt.Println("       aim --register")
 		fmt.Println("       aim --unregister")
 		fmt.Println("       aim --manager")
+		fmt.Println("       aim --gui")
 		os.Exit(1)
 	}
 

@@ -18,6 +18,8 @@ curl -sL https://raw.githubusercontent.com/Magnetkopf/aim/refs/heads/main/instal
 
 ## Build
 
+Requires Go 1.27.1. Why? It's MyGo!!!
+
 1. **Build the Web UI**
    ```bash
    cd web
@@ -51,3 +53,9 @@ aim /path/to/downloaded/software.AppImage
 ```
 
 Your default web browser will instantly pop up the installation guide!
+
+Drop-and-install GUI:
+
+```bash
+aim --gui
+```
