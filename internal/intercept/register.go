@@ -28,9 +28,9 @@ Comment=Love ur AppImage
 Exec=%s %%f
 Icon=system-software-install
 Type=Application
-Categories=System;Utility;Core;
+Terminal=false
+Categories=Utility;
 MimeType=application/vnd.appimage;
-NoDisplay=true
 `, execPath)
 
 	if err := os.WriteFile(desktopFilePath, []byte(desktopFileContent), 0644); err != nil {

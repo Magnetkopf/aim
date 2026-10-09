@@ -46,7 +46,15 @@ aim --register
 ```
 
 **2. General use**
-After registration, simply **double-click** any `.AppImage` file in your system file browser, or trigger it via the command line:
+Launch GUI and drop your AppImage:
+
+```bash
+aim
+```
+
+Also:
+
+Double-click an `.AppImage` file, or pass its path:
 
 ```bash
 aim /path/to/downloaded/software.AppImage
@@ -54,7 +62,7 @@ aim /path/to/downloaded/software.AppImage
 
 Your default web browser will instantly pop up the installation guide!
 
-Drop-and-install GUI:
+`--gui` also opens the drop window:
 
 ```bash
 aim --gui

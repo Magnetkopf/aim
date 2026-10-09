@@ -40,7 +40,8 @@ func main() {
 		return
 	}
 
-	if gui {
+	args := flag.Args()
+	if gui || (!manager && len(args) == 0) {
 		if err := picker.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error running AppImage picker: %v\n", err)
 			os.Exit(1)
@@ -63,18 +64,6 @@ func main() {
 			os.Exit(1)
 		}
 		return
-	}
-
-	// For now, in Phase 1, we just verify that we received a file path.
-	args := flag.Args()
-	if len(args) == 0 {
-		fmt.Println("aim")
-		fmt.Println("Usage: aim [appimage_file]")
-		fmt.Println("       aim --register")
-		fmt.Println("       aim --unregister")
-		fmt.Println("       aim --manager")
-		fmt.Println("       aim --gui")
-		os.Exit(1)
 	}
 
 	filePath := args[0]
